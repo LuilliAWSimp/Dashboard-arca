@@ -11,7 +11,7 @@ const options = [
     accent: 'electric',
   },
   {
-    title: 'Monitoreo hidráulico',
+    title: 'Monitoreo x',
     subtitle: 'Acceso al dominio hidráulico con consumos, tanques, balance, CIP, UV y reportes.',
     icon: Droplets,
     to: '/pozos/dashboard',
