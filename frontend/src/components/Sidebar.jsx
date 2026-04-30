@@ -2,10 +2,10 @@ import {
   Activity,
   ArrowLeftRight,
   BellRing,
+  Database,
   Droplets,
   Factory,
   FileBarChart2,
-  Database,
   FlaskConical,
   Gauge,
   Home,
@@ -14,10 +14,10 @@ import {
   LineChart as LineChartIcon,
   Menu,
   Settings,
+  ShieldCheck,
   Snowflake,
   Truck,
   Waves,
-  ShieldCheck,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
@@ -70,7 +70,7 @@ export default function Sidebar({
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="brand-row">
-        <button className="menu-button" onClick={onToggle}><Menu size={18} /></button>
+        <button className="menu-button" onClick={onToggle} aria-label="Alternar menu"><Menu size={18} /></button>
         {!collapsed && (
           <>
             <div className="brand-mark logo-mark"><BrandLogo className="brand-logo sidebar-logo" /></div>
@@ -101,7 +101,7 @@ export default function Sidebar({
 
       {domainSwitchPath ? (
         <div className="sidebar-footer">
-          <NavLink to={domainSwitchPath} className="nav-item switch-domain-link">
+          <NavLink to={domainSwitchPath} className="nav-item switch-domain-link" title={domainSwitchLabel}>
             <ArrowLeftRight size={16} />
             {!collapsed && <span>{domainSwitchLabel}</span>}
           </NavLink>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -53,7 +53,7 @@ function buildElectricCatalog(catalog) {
   };
 }
 
-function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass = '', onDomainSwitch }) {
+function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass = '' }) {
   const [clock, setClock] = useState(nowText());
 
   useEffect(() => {
@@ -73,8 +73,6 @@ function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass 
           onEmail={headerMeta.onEmail}
           user={user}
           onLogout={onLogout}
-          onDomainSwitch={onDomainSwitch}
-          domainSwitchLabel={sidebarProps?.domainSwitchLabel}
         />
         <main className="page-content">{children}</main>
       </div>
@@ -84,7 +82,6 @@ function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass 
 
 function ElectricShell({ user, onLogout }) {
   const { section = DEFAULT_ELECTRIC_SECTION } = useParams();
-  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [catalog, setCatalog] = useState(null);
   const [headerMeta, setHeaderMeta] = useState({
@@ -111,7 +108,6 @@ function ElectricShell({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       headerMeta={headerMeta}
-      onDomainSwitch={() => navigate('/domains')}
       sidebarProps={{
         collapsed,
         onToggle: () => setCollapsed((value) => !value),
@@ -130,7 +126,6 @@ function ElectricShell({ user, onLogout }) {
 
 function PozosShell({ user, onLogout }) {
   const { section = DEFAULT_POZOS_SECTION } = useParams();
-  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [headerMeta, setHeaderMeta] = useState({
     title: 'Pozos · Dashboard base',
@@ -145,14 +140,13 @@ function PozosShell({ user, onLogout }) {
       onLogout={onLogout}
       headerMeta={headerMeta}
       shellClass="pozos-shell"
-      onDomainSwitch={() => navigate('/domains')}
       sidebarProps={{
         collapsed,
         onToggle: () => setCollapsed((value) => !value),
         sections: POZOS_MENU,
         basePath: '/pozos',
-        brandTitle: 'Prueba',
-        brandSubtitle: 'Monitoreo hidrico',
+        brandTitle: 'POZOS',
+        brandSubtitle: 'MONITOREO HÍDRICO',
         domainSwitchPath: '/domains',
         domainSwitchLabel: 'Cambiar dominio',
       }}

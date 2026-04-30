@@ -1919,3 +1919,37 @@ th { color: #c1d0e8; font-weight: 700; position: sticky; top: 0; background: #0f
 .small-value {
   font-size: 20px;
 }
+
+/* Sidebar/header consistency: domain switch stays in sidebar; exports stay in header */
+.switch-domain-link span {
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  padding-inline: 10px;
+}
+
+.sidebar.collapsed .switch-domain-link {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar.collapsed .switch-domain-link:hover {
+  transform: translateX(0);
+}
+
+.header-bar .header-actions {
+  justify-content: flex-end;
+}
+
+.pozos-shell .brand-row {
+  min-height: 94px;
+  gap: 10px;
+  padding: 16px 16px 18px;
+}
+
+.pozos-shell .brand-title {
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: .01em;
+}
