@@ -617,37 +617,157 @@ function formatNumber(value, decimals = 1) {
   });
 }
 
+const demoStateOptions = [
+  { key: 'base', label: 'Dato base' },
+  { key: 'encendido', label: 'Encendido' },
+  { key: 'apagado', label: 'Apagado' },
+  { key: 'inactivo', label: 'Inactivo' },
+  { key: 'sin_comunicacion', label: 'Sin comunicación' },
+];
+
+const demoStateMeta = {
+  encendido: { status: 'Encendido', statusType: 'normal', estado_comunicacion: 'En línea', communicationType: 'online' },
+  apagado: { status: 'Apagado manual', statusType: 'idle', estado_comunicacion: 'En línea', communicationType: 'online' },
+  inactivo: { status: 'Inactivo', statusType: 'inactive', estado_comunicacion: 'En línea', communicationType: 'online' },
+  sin_comunicacion: { status: 'Sin comunicación', statusType: 'communication', estado_comunicacion: 'Timeout demo', communicationType: 'offline' },
+};
+
+function getFallbackOnValue(well, field, fallback) {
+  const value = well[field];
+  if (value !== null && value !== undefined && value !== 0) return value;
+  return fallback;
+}
+
+function applyDemoWellState(well, overrideState) {
+  if (!overrideState || overrideState === 'base') return well;
+
+  const meta = demoStateMeta[overrideState] || demoStateMeta.encendido;
+  const next = {
+    ...well,
+    estado_operativo: overrideState,
+    status: meta.status,
+    statusType: meta.statusType,
+    estado_comunicacion: meta.estado_comunicacion,
+    communicationType: meta.communicationType,
+    demoOverride: overrideState,
+  };
+
+  if (overrideState === 'encendido') {
+    return {
+      ...next,
+      apagado_manual: false,
+      kwh: getFallbackOnValue(well, 'kwh', 1680 + well.numero * 72),
+      totalizador_m3: getFallbackOnValue(well, 'totalizador_m3', 98000 + well.numero * 3400),
+      flujo_entrada: getFallbackOnValue(well, 'flujo_entrada', 48 + well.numero * 0.8),
+      flujo_salida: getFallbackOnValue(well, 'flujo_salida', 46 + well.numero * 0.7),
+      flow: getFallbackOnValue(well, 'flow', 48 + well.numero * 0.8),
+      dailyKwh: getFallbackOnValue(well, 'dailyKwh', 1680 + well.numero * 72),
+      amps: getFallbackOnValue(well, 'amps', 68 + well.numero),
+      ultima_lectura: 'Ahora · demo',
+      updated: 'Ahora · demo',
+      diagnosis: 'Simulación visual de pozo encendido; no es comando real.',
+    };
+  }
+
+  if (overrideState === 'apagado' || overrideState === 'inactivo') {
+    return {
+      ...next,
+      apagado_manual: overrideState === 'apagado',
+      kwh: 0,
+      flujo_entrada: 0,
+      flujo_salida: 0,
+      flow: 0,
+      dailyKwh: 0,
+      amps: 0,
+      efficiency: null,
+      loadFactor: 0,
+      ampFlowRatio: null,
+      ultima_lectura: overrideState === 'apagado' ? 'Ahora · apagado demo' : well.ultima_lectura,
+      updated: overrideState === 'apagado' ? 'Ahora · apagado demo' : well.updated,
+      diagnosis: overrideState === 'apagado'
+        ? 'Apagado manual para simulación visual; no debe tratarse como falla.'
+        : 'Pozo inactivo; se distingue de un apagado operativo normal.',
+    };
+  }
+
+  if (overrideState === 'sin_comunicacion') {
+    return {
+      ...next,
+      apagado_manual: false,
+      kwh: null,
+      flujo_entrada: null,
+      flujo_salida: null,
+      flow: null,
+      dailyKwh: null,
+      amps: null,
+      efficiency: null,
+      loadFactor: null,
+      ampFlowRatio: null,
+      ultima_lectura: 'Hace 38 min · demo',
+      updated: 'Hace 38 min · demo',
+      diagnosis: 'Timeout de comunicación simulado; validar PLC, red o tag.',
+    };
+  }
+
+  return next;
+}
+
 function filterWellsByStatus(wells, filter) {
-  if (filter === 'activos') return wells.filter((well) => well.statusType === 'normal');
-  if (filter === 'inactivos') return wells.filter((well) => well.statusType === 'idle');
-  if (filter === 'alertas') return wells.filter((well) => ['warning', 'critical'].includes(well.statusType));
-  if (filter === 'sin-datos') return wells.filter((well) => well.statusType === 'nodata');
+  if (filter === 'encendidos') return wells.filter((well) => ['normal', 'warning', 'critical'].includes(well.statusType));
+  if (filter === 'apagados') return wells.filter((well) => well.statusType === 'idle');
+  if (filter === 'inactivos') return wells.filter((well) => well.statusType === 'inactive');
+  if (filter === 'sin-comunicacion') return wells.filter((well) => well.statusType === 'communication');
   return wells;
+}
+
+function MetricPair({ label, value, unit, emphasis }) {
+  return (
+    <div className={`metric-pair ${emphasis ? 'emphasis' : ''}`}>
+      <span>{label}</span>
+      <strong>{value}{unit ? <small>{unit}</small> : null}</strong>
+    </div>
+  );
 }
 
 function PozosSection() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('todos');
+  const [demoStates, setDemoStates] = useState({});
+
   const filterOptions = [
     { key: 'todos', label: 'Todos' },
-    { key: 'activos', label: 'Activos' },
+    { key: 'encendidos', label: 'Encendidos' },
+    { key: 'apagados', label: 'Apagados' },
     { key: 'inactivos', label: 'Inactivos' },
-    { key: 'alertas', label: 'Con alertas' },
-    { key: 'sin-datos', label: 'Sin datos' },
+    { key: 'sin-comunicacion', label: 'Sin comunicación' },
   ];
 
+  const wellsForView = useMemo(
+    () => wellsOperationalStatus.map((well) => applyDemoWellState(well, demoStates[well.id])),
+    [demoStates]
+  );
+
   const filteredWells = useMemo(
-    () => filterWellsByStatus(wellsOperationalStatus, activeFilter),
-    [activeFilter]
+    () => filterWellsByStatus(wellsForView, activeFilter),
+    [activeFilter, wellsForView]
   );
 
   const summary = useMemo(() => {
-    const active = wellsOperationalStatus.filter((well) => well.statusType === 'normal').length;
-    const alerts = wellsOperationalStatus.filter((well) => ['warning', 'critical'].includes(well.statusType)).length;
-    const idle = wellsOperationalStatus.filter((well) => well.statusType === 'idle').length;
-    const noData = wellsOperationalStatus.filter((well) => well.statusType === 'nodata').length;
-    return { active, alerts, idle, noData, total: wellsOperationalStatus.length };
-  }, []);
+    const encendidos = wellsForView.filter((well) => ['normal', 'warning', 'critical'].includes(well.statusType)).length;
+    const apagados = wellsForView.filter((well) => well.statusType === 'idle').length;
+    const inactivos = wellsForView.filter((well) => well.statusType === 'inactive').length;
+    const sinComunicacion = wellsForView.filter((well) => well.statusType === 'communication').length;
+    return { encendidos, apagados, inactivos, sinComunicacion, total: wellsForView.length };
+  }, [wellsForView]);
+
+  const handleDemoStateChange = (wellId, value) => {
+    setDemoStates((current) => {
+      const next = { ...current };
+      if (value === 'base') delete next[wellId];
+      else next[wellId] = value;
+      return next;
+    });
+  };
 
   return (
     <>
@@ -656,26 +776,14 @@ function PozosSection() {
           <div className="eyebrow">Monitoreo operativo · Pozos 1-10</div>
           <h2>Estado operativo de pozos</h2>
           <p>
-            Vista técnica para identificar qué pozos están bombeando, cuáles requieren revisión y cuáles no reportan datos recientes.
+            Vista tipo operación para comparar energía, totalizador, flujos, comunicación y última lectura por pozo sin perder el estilo del dashboard.
           </p>
         </div>
         <div className="pozos-operacion-summary">
-          <article>
-            <span>Activos</span>
-            <strong>{summary.active}/{summary.total}</strong>
-          </article>
-          <article>
-            <span>Con alertas</span>
-            <strong>{summary.alerts}</strong>
-          </article>
-          <article>
-            <span>Inactivos</span>
-            <strong>{summary.idle}</strong>
-          </article>
-          <article>
-            <span>Sin datos</span>
-            <strong>{summary.noData}</strong>
-          </article>
+          <article><span>Encendidos</span><strong>{summary.encendidos}/{summary.total}</strong></article>
+          <article><span>Apagados</span><strong>{summary.apagados}</strong></article>
+          <article><span>Inactivos</span><strong>{summary.inactivos}</strong></article>
+          <article><span>Sin comunicación</span><strong>{summary.sinComunicacion}</strong></article>
         </div>
       </section>
 
@@ -683,108 +791,97 @@ function PozosSection() {
         <div className="pozos-filter-head">
           <div>
             <div className="panel-title">Filtros de operación</div>
-            <div className="panel-subtitle">Filtra por estado sin asumir que todos los pozos tienen datos disponibles.</div>
+            <div className="panel-subtitle">Diferencia apagado manual, inactivo y timeout para no confundir estados operativos con fallas.</div>
           </div>
-          <div className="pozos-filter-count">{filteredWells.length} de {wellsOperationalStatus.length} pozos</div>
+          <div className="pozos-filter-count">{filteredWells.length} de {wellsForView.length} pozos</div>
         </div>
         <div className="pozos-filter-row" role="tablist" aria-label="Filtros de pozos">
           {filterOptions.map((option) => (
-            <button
-              type="button"
-              key={option.key}
-              className={`pozos-filter-chip ${activeFilter === option.key ? 'active' : ''}`}
-              onClick={() => setActiveFilter(option.key)}
-            >
+            <button type="button" key={option.key} className={`pozos-filter-chip ${activeFilter === option.key ? 'active' : ''}`} onClick={() => setActiveFilter(option.key)}>
               {option.label}
             </button>
           ))}
         </div>
       </section>
 
-      <section className="pozos-cards-grid fade-up">
-        {wellsOperationalStatus.map((well) => (
+      <section className="pozos-cards-grid scada-well-grid fade-up">
+        {wellsForView.map((well) => (
           <article
             key={well.id}
-            className={`pozo-mini-card ${well.statusType}`}
+            className={`pozo-mini-card scada-well-card ${well.statusType} ${well.demoOverride ? 'demo-mode' : ''}`}
             role="button"
             tabIndex={0}
             onClick={() => navigate(`/pozos/pozos/${well.id}`)}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') navigate(`/pozos/pozos/${well.id}`); }}
             title="Abrir detalle técnico del pozo"
           >
-            <div className="pozo-mini-head">
-              <strong>{well.name}</strong>
+            <div className="pozo-mini-head scada-well-head">
+              <div>
+                <span className="well-number-label">Pozo {String(well.numero).padStart(2, '0')}</span>
+                <strong>{well.nombre}</strong>
+                <small>{well.ubicacion}</small>
+              </div>
               <StatusBadge type={well.statusType}>{well.status}</StatusBadge>
             </div>
-            <div className="pozo-mini-main">
-              <span>Flujo actual</span>
-              <strong>{formatNumber(well.flow)} <small>m3/h</small></strong>
+
+            <div className="scada-meter-grid">
+              <MetricPair label="kWh" value={well.kwh === null || well.kwh === undefined ? '—' : well.kwh.toLocaleString('es-MX')} />
+              <MetricPair label="Totalizador" value={well.totalizador_m3 === null || well.totalizador_m3 === undefined ? '—' : well.totalizador_m3.toLocaleString('es-MX')} unit="m³" emphasis />
+              <MetricPair label="Entrada" value={formatNumber(well.flujo_entrada)} unit="m³/h" />
+              <MetricPair label="Salida" value={formatNumber(well.flujo_salida)} unit="m³/h" />
             </div>
-            <div className="pozo-mini-meta">
-              <span>{formatNumber(well.amps, 0)} A</span>
-              <span>{well.efficiency ? well.efficiency.toFixed(2) : '—'} kWh/m3</span>
+
+            <div className="scada-card-footer">
+              <span className={`communication-chip ${well.communicationType}`}>{well.estado_comunicacion}</span>
+              <span>{well.ultima_lectura}</span>
+            </div>
+
+            <div className="demo-state-control" onClick={(event) => event.stopPropagation()}>
+              <label htmlFor={`demo-${well.id}`}>Demo estado</label>
+              <select id={`demo-${well.id}`} value={demoStates[well.id] || 'base'} onChange={(event) => handleDemoStateChange(well.id, event.target.value)}>
+                {demoStateOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+              </select>
             </div>
           </article>
         ))}
       </section>
 
       <section className="panel table-wrapper fade-up pozos-operacion-table-panel">
-        <PanelHeader
-          title="Vista comparativa de pozos"
-          subtitle="Lecturas mock preparadas para reemplazarse por datos reales del backend más adelante"
-        />
+        <PanelHeader title="Vista comparativa de pozos" subtitle="kWh y totalizador m³ se muestran separados para evitar ambigüedad entre energía y volumen acumulado" />
         <div className="pozos-table-scroll">
-          <table className="pozos-operacion-table">
+          <table className="pozos-operacion-table scada-pozos-table">
             <thead>
               <tr>
-                <th>Pozo</th>
-                <th>Estado</th>
-                <th>Flujo actual</th>
-                <th>Consumo diario</th>
-                <th>Amperaje</th>
-                <th>kWh/m3</th>
-                <th>Factor carga</th>
-                <th>Relación A / m3/h</th>
-                <th>Diagnóstico</th>
-                <th>Última lectura</th>
+                <th>Pozo</th><th>Ubicación</th><th>Estado</th><th>Comunicación</th><th>kWh</th><th>Totalizador m³</th><th>Entrada m³/h</th><th>Salida m³/h</th><th>Última lectura</th><th>Demo</th>
               </tr>
             </thead>
             <tbody>
               {filteredWells.map((well) => (
-                <tr
-                  key={well.id}
-                  className={`pozo-row ${well.statusType}`}
-                  onClick={() => navigate(`/pozos/pozos/${well.id}`)}
-                  title="Abrir detalle técnico del pozo"
-                >
-                  <td>
-                    <div className="well-name-cell">
-                      <span className={`well-dot ${well.statusType}`} />
-                      <span>{well.name}</span>
-                    </div>
-                  </td>
+                <tr key={well.id} className={`pozo-row ${well.statusType}`} onClick={() => navigate(`/pozos/pozos/${well.id}`)} title="Abrir detalle técnico del pozo">
+                  <td><div className="well-name-cell"><span className={`well-dot ${well.statusType}`} /><span>Pozo {String(well.numero).padStart(2, '0')}</span></div></td>
+                  <td>{well.ubicacion}</td>
                   <td><StatusBadge type={well.statusType}>{well.status}</StatusBadge></td>
-                  <td>{formatNumber(well.flow)} m3/h</td>
-                  <td>{well.dailyKwh === null || well.dailyKwh === undefined ? '—' : `${well.dailyKwh.toLocaleString('es-MX')} kWh`}</td>
-                  <td>{formatNumber(well.amps, 0)} A</td>
-                  <td>{well.efficiency ? well.efficiency.toFixed(2) : '—'}</td>
-                  <td>{well.loadFactor === null || well.loadFactor === undefined ? '—' : `${well.loadFactor}%`}</td>
-                  <td>{well.ampFlowRatio ? well.ampFlowRatio.toFixed(2) : '—'}</td>
-                  <td>{well.diagnosis}</td>
-                  <td>{well.updated}</td>
+                  <td><span className={`communication-chip ${well.communicationType}`}>{well.estado_comunicacion}</span></td>
+                  <td className="metric-strong">{well.kwh === null || well.kwh === undefined ? '—' : `${well.kwh.toLocaleString('es-MX')} kWh`}</td>
+                  <td className="metric-strong">{well.totalizador_m3 === null || well.totalizador_m3 === undefined ? '—' : `${well.totalizador_m3.toLocaleString('es-MX')} m³`}</td>
+                  <td>{formatNumber(well.flujo_entrada)} m³/h</td>
+                  <td>{formatNumber(well.flujo_salida)} m³/h</td>
+                  <td>{well.ultima_lectura}</td>
+                  <td onClick={(event) => event.stopPropagation()}>
+                    <select className="table-demo-select" value={demoStates[well.id] || 'base'} onChange={(event) => handleDemoStateChange(well.id, event.target.value)} aria-label={`Cambiar estado demo ${well.nombre}`}>
+                      {demoStateOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="pozos-table-note">
-          Haz click en una tarjeta o fila para abrir el detalle técnico mock del pozo.
-        </div>
+        <div className="pozos-table-note">El selector “Demo estado” solo cambia la visualización local para prototipado; no controla equipos reales ni modifica backend.</div>
       </section>
     </>
   );
 }
-
 
 function getWellDetail(wellId) {
   const well = wellsOperationalStatus.find((item) => item.id === wellId) || wellsOperationalStatus[0];

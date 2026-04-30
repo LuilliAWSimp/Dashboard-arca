@@ -3524,3 +3524,231 @@ th { color: #c1d0e8; font-weight: 700; position: sticky; top: 0; background: #0f
     grid-template-columns: 1fr;
   }
 }
+
+/* SCADA-inspired wells operation update */
+.scada-well-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.scada-well-card {
+  min-height: 242px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+
+.scada-well-card.demo-mode::after {
+  content: 'demo';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #e0faff;
+  background: rgba(14,165,233,.18);
+  border: 1px solid rgba(125,211,252,.22);
+}
+
+.scada-well-head {
+  align-items: flex-start;
+}
+
+.scada-well-head > div {
+  min-width: 0;
+}
+
+.scada-well-head small,
+.well-number-label {
+  display: block;
+  color: #8bcce2;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.well-number-label {
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  margin-bottom: 4px;
+  color: #7dd3fc;
+}
+
+.scada-meter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-pair {
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(3,15,28,.34);
+  border: 1px solid rgba(125,211,252,.10);
+}
+
+.metric-pair.emphasis {
+  border-color: rgba(56,189,248,.22);
+  background: rgba(14,165,233,.09);
+}
+
+.metric-pair span {
+  display: block;
+  color: #8bcce2;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .11em;
+  margin-bottom: 5px;
+}
+
+.metric-pair strong {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+  color: #f4fcff;
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.metric-pair small {
+  color: #9ed1e6;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.scada-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: #8fbfd2;
+  font-size: 11px;
+  margin-top: auto;
+}
+
+.communication-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(125,211,252,.16);
+  background: rgba(8,47,73,.22);
+  color: #dff9ff;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.communication-chip::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34,197,94,.12);
+}
+
+.communication-chip.offline {
+  color: #fecaca;
+  border-color: rgba(248,113,113,.25);
+  background: rgba(127,29,29,.16);
+}
+
+.communication-chip.offline::before {
+  background: #f87171;
+  box-shadow: 0 0 0 4px rgba(248,113,113,.14);
+}
+
+.demo-state-control {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(125,211,252,.10);
+}
+
+.demo-state-control label {
+  color: #8bcce2;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.demo-state-control select,
+.table-demo-select {
+  width: 100%;
+  border: 1px solid rgba(125,211,252,.18);
+  border-radius: 12px;
+  background: rgba(3,15,28,.72);
+  color: #effbff;
+  padding: 8px 10px;
+  font-size: 12px;
+  outline: none;
+}
+
+.table-demo-select {
+  min-width: 138px;
+}
+
+.scada-pozos-table {
+  min-width: 1280px;
+}
+
+.metric-strong {
+  color: #f8fdff !important;
+  font-weight: 800;
+}
+
+.pozo-mini-card.inactive {
+  opacity: 1;
+  border-style: solid;
+  border-color: rgba(148,163,184,.36);
+  background:
+    linear-gradient(180deg, rgba(71,85,105,.22), rgba(15,23,42,.62)),
+    repeating-linear-gradient(135deg, rgba(148,163,184,.045) 0 10px, transparent 10px 20px);
+}
+
+.pozo-mini-card.communication {
+  border-color: rgba(248,113,113,.38);
+  background: linear-gradient(180deg, rgba(127,29,29,.16), rgba(3,15,28,.66));
+}
+
+.pozo-row.inactive td {
+  color: #cbd5e1;
+  background: rgba(100,116,139,.04);
+}
+
+.pozo-row.communication td {
+  color: #fecaca;
+  background: rgba(127,29,29,.035);
+}
+
+.well-dot.inactive { background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.12); }
+.well-dot.communication { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,.12); }
+
+.status-pill.inactive {
+  background: rgba(148,163,184,.14);
+  color: #e2e8f0;
+  border-color: rgba(148,163,184,.28);
+}
+
+.status-pill.communication {
+  background: rgba(248,113,113,.14);
+  color: #fecaca;
+  border-color: rgba(248,113,113,.32);
+}
+
+@media (max-width: 1460px) {
+  .scada-well-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .scada-well-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .scada-well-grid { grid-template-columns: 1fr; }
+  .scada-meter-grid { grid-template-columns: 1fr; }
+}
