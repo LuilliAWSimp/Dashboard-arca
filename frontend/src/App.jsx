@@ -7,20 +7,18 @@ import PozosDashboardPage from './pages/PozosDashboardPage';
 import { getAuth, logout } from './services/authService';
 
 const DEFAULT_POZOS_SECTION = 'dashboard';
-const POZOS_HOME = `/pozos/${DEFAULT_POZOS_SECTION}`;
 
 const POZOS_MENU = [
   {
-    group: 'Pozos',
+    group: 'Operación de agua',
     items: [
-      { key: 'dashboard', label: 'Dashboard base', iconKey: 'pozos-dashboard' },
-      { key: 'consumos', label: 'Consumos', iconKey: 'pozos-consumos' },
+      { key: 'dashboard', label: 'Resumen', iconKey: 'pozos-dashboard' },
+      { key: 'pozos', label: 'Pozos', iconKey: 'pozos-pozos' },
       { key: 'tanques', label: 'Tanques', iconKey: 'pozos-tanques' },
-      { key: 'balance', label: 'Entradas vs salidas', iconKey: 'pozos-balance' },
-      { key: 'cip', label: 'CIP', iconKey: 'pozos-cip' },
-      { key: 'uv', label: 'Lámparas UV', iconKey: 'pozos-uv' },
-      { key: 'reportes', label: 'Reportes', iconKey: 'pozos-reportes' },
-      { key: 'fuentes', label: 'Fuentes', iconKey: 'pozos-fuentes' },
+      { key: 'lineas', label: 'Líneas', iconKey: 'pozos-lineas' },
+      { key: 'balance', label: 'Balance de Agua', iconKey: 'pozos-balance' },
+      { key: 'concesion', label: 'Concesión', iconKey: 'pozos-concesion' },
+      { key: 'revision', label: 'Revisión Diaria', iconKey: 'pozos-revision' },
     ],
   },
 ];
@@ -62,10 +60,10 @@ function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass 
 }
 
 function PozosShell({ user, onLogout }) {
-  const { section = DEFAULT_POZOS_SECTION } = useParams();
+  const { section = DEFAULT_POZOS_SECTION, itemId } = useParams();
   const [collapsed, setCollapsed] = useState(false);
   const [headerMeta, setHeaderMeta] = useState({
-    title: 'Pozos · Dashboard base',
+    title: 'Resumen de Pozos',
     subtitle: '',
     onExport: () => {},
     onEmail: () => {},
@@ -76,17 +74,17 @@ function PozosShell({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       headerMeta={headerMeta}
-      shellClass="pozos-shell single-domain-shell"
+      shellClass="pozos-shell"
       sidebarProps={{
         collapsed,
         onToggle: () => setCollapsed((value) => !value),
         sections: POZOS_MENU,
         basePath: '/pozos',
-        brandTitle: 'POZOS',
-        brandSubtitle: 'MONITOREO HÍDRICO',
+        brandTitle: 'Pozos de Agua',
+        brandSubtitle: 'Monitoreo y balance hidrico',
       }}
     >
-      <PozosDashboardPage section={section} setHeaderMeta={setHeaderMeta} />
+      <PozosDashboardPage section={section} itemId={itemId} setHeaderMeta={setHeaderMeta} />
     </Shell>
   );
 }
@@ -115,19 +113,22 @@ export default function App() {
     return () => window.removeEventListener('storage', syncAuth);
   }, []);
 
+  const defaultRoute = auth?.token ? `/pozos/${DEFAULT_POZOS_SECTION}` : '/login';
+
   return (
     <Routes>
       <Route
         path="/login"
-        element={auth?.token ? <Navigate to={POZOS_HOME} replace /> : <LoginPage onSuccess={handleLoginSuccess} />}
+        element={auth?.token ? <Navigate to={`/pozos/${DEFAULT_POZOS_SECTION}`} replace /> : <LoginPage onSuccess={handleLoginSuccess} />}
       />
 
-      <Route path="/" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
-      <Route path="/domains" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
-      <Route path="/electric" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
-      <Route path="/electric/:section" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
+      <Route path="/" element={<Navigate to={defaultRoute} replace />} />
+      <Route path="/domains" element={<Navigate to={defaultRoute} replace />} />
 
-      <Route path="/pozos" element={<Navigate to={POZOS_HOME} replace />} />
+      <Route path="/electric" element={<Navigate to={`/pozos/${DEFAULT_POZOS_SECTION}`} replace />} />
+      <Route path="/electric/:section" element={<Navigate to={`/pozos/${DEFAULT_POZOS_SECTION}`} replace />} />
+
+      <Route path="/pozos" element={<Navigate to={`/pozos/${DEFAULT_POZOS_SECTION}`} replace />} />
       <Route
         path="/pozos/:section"
         element={
@@ -136,9 +137,17 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/pozos/:section/:itemId"
+        element={
+          <ProtectedRoute auth={auth}>
+            <PozosShell user={auth?.user} onLogout={handleLogout} />
+          </ProtectedRoute>
+        }
+      />
 
       <Route path="/:legacySection" element={<ProtectedRoute auth={auth}><LegacyPozosRedirect /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={defaultRoute} replace />} />
     </Routes>
   );
 }
