@@ -1,19 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
-import MultiPlantDashboardPage from './pages/MultiPlantDashboardPage';
-import LinesOverviewPage from './pages/LinesOverviewPage';
 import PozosDashboardPage from './pages/PozosDashboardPage';
-import DomainSelectionPage from './pages/DomainSelectionPage';
 import { getAuth, logout } from './services/authService';
-import { fetchPlantCatalog } from './services/plantService';
 
-const DEFAULT_ELECTRIC_SECTION = 'dashboard';
 const DEFAULT_POZOS_SECTION = 'dashboard';
-const DEFAULT_PLANT_ID = 'gdl-demo';
+const POZOS_HOME = `/pozos/${DEFAULT_POZOS_SECTION}`;
 
 const POZOS_MENU = [
   {
@@ -38,19 +32,6 @@ function nowText() {
     second: '2-digit',
     hour12: false,
   });
-}
-
-function buildElectricCatalog(catalog) {
-  if (!catalog?.menu) return null;
-  return {
-    ...catalog,
-    menu: catalog.menu
-      .map((group) => ({
-        ...group,
-        items: group.items.filter((item) => item.key !== 'pozos'),
-      }))
-      .filter((group) => group.items.length > 0),
-  };
 }
 
 function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass = '' }) {
@@ -80,50 +61,6 @@ function Shell({ user, onLogout, sidebarProps, children, headerMeta, shellClass 
   );
 }
 
-function ElectricShell({ user, onLogout }) {
-  const { section = DEFAULT_ELECTRIC_SECTION } = useParams();
-  const [collapsed, setCollapsed] = useState(false);
-  const [catalog, setCatalog] = useState(null);
-  const [headerMeta, setHeaderMeta] = useState({
-    title: 'Dashboard General',
-    subtitle: 'Monitoreo en tiempo real',
-    onExport: () => {},
-    onEmail: () => {},
-  });
-
-  useEffect(() => {
-    fetchPlantCatalog(DEFAULT_PLANT_ID).then(setCatalog).catch(() => setCatalog(null));
-  }, []);
-
-  const electricCatalog = useMemo(() => buildElectricCatalog(catalog), [catalog]);
-
-  const sectionContent = section === 'multi-plant-dashboard'
-    ? <MultiPlantDashboardPage setHeaderMeta={setHeaderMeta} />
-    : section === 'lineas'
-      ? <LinesOverviewPage setHeaderMeta={setHeaderMeta} />
-      : <DashboardPage plantId={DEFAULT_PLANT_ID} section={section} setHeaderMeta={setHeaderMeta} catalog={electricCatalog} />;
-
-  return (
-    <Shell
-      user={user}
-      onLogout={onLogout}
-      headerMeta={headerMeta}
-      sidebarProps={{
-        collapsed,
-        onToggle: () => setCollapsed((value) => !value),
-        sections: electricCatalog?.menu || [],
-        basePath: '/electric',
-        brandTitle: 'CONSUMO ELÉCTRICO',
-        brandSubtitle: 'PLANTA ZAPOPAN',
-        domainSwitchPath: '/domains',
-        domainSwitchLabel: 'Cambiar dominio',
-      }}
-    >
-      {sectionContent}
-    </Shell>
-  );
-}
-
 function PozosShell({ user, onLogout }) {
   const { section = DEFAULT_POZOS_SECTION } = useParams();
   const [collapsed, setCollapsed] = useState(false);
@@ -139,7 +76,7 @@ function PozosShell({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       headerMeta={headerMeta}
-      shellClass="pozos-shell"
+      shellClass="pozos-shell single-domain-shell"
       sidebarProps={{
         collapsed,
         onToggle: () => setCollapsed((value) => !value),
@@ -147,8 +84,6 @@ function PozosShell({ user, onLogout }) {
         basePath: '/pozos',
         brandTitle: 'POZOS',
         brandSubtitle: 'MONITOREO HÍDRICO',
-        domainSwitchPath: '/domains',
-        domainSwitchLabel: 'Cambiar dominio',
       }}
     >
       <PozosDashboardPage section={section} setHeaderMeta={setHeaderMeta} />
@@ -161,9 +96,9 @@ function ProtectedRoute({ auth, children }) {
   return children;
 }
 
-function LegacyElectricRedirect() {
+function LegacyPozosRedirect() {
   const { legacySection } = useParams();
-  return <Navigate to={`/electric/${legacySection || DEFAULT_ELECTRIC_SECTION}`} replace />;
+  return <Navigate to={`/pozos/${legacySection || DEFAULT_POZOS_SECTION}`} replace />;
 }
 
 export default function App() {
@@ -184,29 +119,15 @@ export default function App() {
     <Routes>
       <Route
         path="/login"
-        element={auth?.token ? <Navigate to="/domains" replace /> : <LoginPage onSuccess={handleLoginSuccess} />}
+        element={auth?.token ? <Navigate to={POZOS_HOME} replace /> : <LoginPage onSuccess={handleLoginSuccess} />}
       />
 
-      <Route
-        path="/domains"
-        element={
-          <ProtectedRoute auth={auth}>
-            <DomainSelectionPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
+      <Route path="/domains" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
+      <Route path="/electric" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
+      <Route path="/electric/:section" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
 
-      <Route path="/electric" element={<Navigate to={`/electric/${DEFAULT_ELECTRIC_SECTION}`} replace />} />
-      <Route
-        path="/electric/:section"
-        element={
-          <ProtectedRoute auth={auth}>
-            <ElectricShell user={auth?.user} onLogout={handleLogout} />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route path="/pozos" element={<Navigate to={`/pozos/${DEFAULT_POZOS_SECTION}`} replace />} />
+      <Route path="/pozos" element={<Navigate to={POZOS_HOME} replace />} />
       <Route
         path="/pozos/:section"
         element={
@@ -216,9 +137,8 @@ export default function App() {
         }
       />
 
-      <Route path="/" element={<Navigate to={auth?.token ? '/domains' : '/login'} replace />} />
-      <Route path="/:legacySection" element={<ProtectedRoute auth={auth}><LegacyElectricRedirect /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to={auth?.token ? '/domains' : '/login'} replace />} />
+      <Route path="/:legacySection" element={<ProtectedRoute auth={auth}><LegacyPozosRedirect /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to={auth?.token ? POZOS_HOME : '/login'} replace />} />
     </Routes>
   );
 }
