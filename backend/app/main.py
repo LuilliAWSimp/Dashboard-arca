@@ -7,6 +7,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.email import router as email_router
 from app.api.routes.export import router as export_router
 from app.api.routes.plants import router as plants_router
+from app.api.routes.water import router as water_router
 from app.api.routes.water_export import router as water_export_router
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
@@ -28,6 +29,7 @@ app.include_router(dashboard_router, prefix=settings.api_v1_prefix)
 app.include_router(export_router, prefix=settings.api_v1_prefix)
 app.include_router(email_router, prefix=settings.api_v1_prefix)
 app.include_router(plants_router, prefix=settings.api_v1_prefix)
+app.include_router(water_router, prefix=settings.api_v1_prefix)
 app.include_router(water_export_router, prefix=settings.api_v1_prefix)
 
 

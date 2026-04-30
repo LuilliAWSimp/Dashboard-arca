@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from app.schemas.dashboard import KpiCard
 from app.schemas.water import (
     BalancePoint,
     CipPoint,
+    FilterTreatedPoint,
+    HourlyFlowPoint,
     MonthlyAveragePoint,
     TankLevelItem,
     WaterDashboardPayload,
     WaterMetricItem,
+    WaterSensorItem,
+    WaterSourceInfo,
+    WaterWellItem,
 )
+from app.services.water_source_service import load_active_source_payload
 
 
 WATER_SECTION_META = {
@@ -21,106 +28,184 @@ WATER_SECTION_META = {
     'reportes': ('Reportes', 'Base preparada para exportaciones y seguimiento'),
     'cip': ('CIP', 'Consumo horario CIP y referencia semanal'),
     'uv': ('Lámparas UV', 'Preparado para fase siguiente'),
+    'fuentes': ('Fuentes de pozos', 'Administración de datasets hidráulicos cargados'),
 }
 
 
-def _base_cards() -> list[KpiCard]:
+def _num(value: Any, default: float = 0) -> float:
+    if value is None or value == '':
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).replace(',', '').strip())
+    except ValueError:
+        return default
+
+
+def _metric(item: dict[str, Any]) -> WaterMetricItem:
+    return WaterMetricItem(
+        name=str(item.get('name', 'Métrica')),
+        value=_num(item.get('value')),
+        unit=str(item.get('unit', '')),
+        detail=str(item.get('detail', '')),
+    )
+
+
+def _build_cards(wells: list[WaterWellItem], consumption: list[WaterMetricItem], source: WaterSourceInfo | None) -> list[KpiCard]:
+    total_entry = sum(well.entry_m3 for well in wells)
+    treated = next((item.value for item in consumption if item.name.lower() in {'tratada', 'agua tratada'}), 0)
+    active_wells = sum(1 for well in wells if well.active)
+    total_wells = len(wells)
+    balance = total_entry - treated if treated else 0
     return [
-        KpiCard(label='Entrada total de agua', value='1,284', unit='m³/día', trend='Suma diaria de pozos', accent='red'),
-        KpiCard(label='Agua tratada', value='742', unit='m³/día', trend='Consumo principal', accent='crimson'),
-        KpiCard(label='Balance neto', value='118', unit='m³', trend='Entrada - salida', accent='wine'),
-        KpiCard(label='Pozos operando 24 h', value='3/4', unit='pozos', trend='Disponibilidad', accent='brown'),
+        KpiCard(label='Entrada total de agua', value=f'{total_entry:,.0f}', unit='m³/día', trend='Suma de pozos cargados', accent='red'),
+        KpiCard(label='Agua tratada', value=f'{treated:,.0f}', unit='m³/día', trend='Dato desde fuente activa', accent='crimson'),
+        KpiCard(label='Balance neto', value=f'{balance:,.0f}', unit='m³', trend='Entrada - tratada', accent='wine'),
+        KpiCard(label='Pozos operando', value=f'{active_wells}/{total_wells}', unit='pozos', trend=source.name if source else 'Sin fuente activa', accent='brown'),
     ]
 
 
-def get_water_dashboard_payload(section: str = 'dashboard') -> WaterDashboardPayload:
+def _empty_payload(section: str, source: WaterSourceInfo | None = None) -> WaterDashboardPayload:
     title, subtitle = WATER_SECTION_META.get(section, WATER_SECTION_META['dashboard'])
+    suffix = 'No hay una fuente de pozos activa. Carga y activa una fuente para ver datos reales.'
+    if source:
+        suffix = 'La fuente activa no pudo leerse o no contiene datos válidos.'
+    return WaterDashboardPayload(
+        title=title,
+        subtitle=f'{subtitle}. {suffix}',
+        cards=[],
+        water_entry_by_well=[],
+        water_consumption=[],
+        tank_levels=[],
+        supply_hours=[],
+        filters_vs_treated=[],
+        cip_weekly=[],
+        entry_vs_exit=[],
+        monthly_averages=[],
+        daily_indicators=[],
+        report_modules=['Carga una fuente de pozos para habilitar reportes reales'],
+        hourly_flow=[],
+        wells=[],
+        sensors=[],
+        source_status='missing_data' if source else 'no_source',
+        source=source,
+        updated_at=datetime.utcnow(),
+    )
+
+
+def _normalize_dashboard_data(data: dict[str, Any], source: WaterSourceInfo | None) -> dict[str, Any]:
+    wells = [WaterWellItem(**item) for item in data.get('wells', [])]
+    sensors = [WaterSensorItem(**item) for item in data.get('sensors', [])]
+    for well in wells:
+        sensors.extend(well.sensors)
+
+    seen_sensor_ids = set()
+    unique_sensors = []
+    for sensor in sensors:
+        if sensor.id in seen_sensor_ids:
+            continue
+        seen_sensor_ids.add(sensor.id)
+        unique_sensors.append(sensor)
 
     water_entry_by_well = [
-        WaterMetricItem(name='Pozo 1', value=312, unit='m³', detail='Entrada diaria'),
-        WaterMetricItem(name='Pozo 2', value=284, unit='m³', detail='Entrada diaria'),
-        WaterMetricItem(name='Pozo 3', value=356, unit='m³', detail='Entrada diaria'),
-        WaterMetricItem(name='Pozo 4', value=332, unit='m³', detail='Entrada diaria'),
-    ]
-    water_consumption = [
-        WaterMetricItem(name='Tratada', value=742, unit='m³', detail='Consumo diario'),
-        WaterMetricItem(name='Suave', value=198, unit='m³', detail='Consumo diario'),
-        WaterMetricItem(name='Cruda', value=226, unit='m³', detail='Consumo diario'),
-    ]
-    tank_levels = [
-        TankLevelItem(name='Tanque tratado', volume_m3=420, height_m=4.8, capacity_m3=500, fill_pct=84, status='Normal'),
-        TankLevelItem(name='Tanque suave', volume_m3=188, height_m=3.2, capacity_m3=260, fill_pct=72, status='Normal'),
-        TankLevelItem(name='Tanque crudo', volume_m3=144, height_m=2.1, capacity_m3=300, fill_pct=48, status='Atención'),
+        WaterMetricItem(
+            name=well.name,
+            value=well.entry_m3,
+            unit='m³',
+            detail='Entrada diaria' if well.active else 'Pozo inactivo',
+        )
+        for well in wells
     ]
     supply_hours = [
-        WaterMetricItem(name='Pozo 1', value=24, unit='hrs', detail='Suministro 24 hrs'),
-        WaterMetricItem(name='Pozo 2', value=24, unit='hrs', detail='Suministro 24 hrs'),
-        WaterMetricItem(name='Pozo 3', value=21, unit='hrs', detail='Paro corto'),
-        WaterMetricItem(name='Pozo 4', value=24, unit='hrs', detail='Suministro 24 hrs'),
+        WaterMetricItem(name=well.name, value=well.supply_hours, unit='hrs', detail='Suministro registrado')
+        for well in wells
     ]
-    filters_vs_treated = [
-        WaterMetricItem(name='Agua filtros', value=812, unit='m³', detail='Paso por filtros'),
-        WaterMetricItem(name='Agua tratada', value=742, unit='m³', detail='Salida tratada'),
-    ]
-    cip_weekly = [
-        CipPoint(day='Lun', hours=2.1),
-        CipPoint(day='Mar', hours=2.4),
-        CipPoint(day='Mié', hours=1.9),
-        CipPoint(day='Jue', hours=2.6),
-        CipPoint(day='Vie', hours=2.3),
-        CipPoint(day='Sáb', hours=1.7),
-        CipPoint(day='Dom', hours=1.4),
-    ]
+    water_consumption = [_metric(item) for item in data.get('water_consumption', [])]
+    tank_levels = [TankLevelItem(**item) for item in data.get('tank_levels', [])]
+    hourly_flow = [HourlyFlowPoint(**item) for item in data.get('hourly_flow', [])]
+    filters_vs_treated = [FilterTreatedPoint(**item) for item in data.get('filters_vs_treated', [])]
+    cip_weekly = [CipPoint(day=str(item.get('day', item.get('label', ''))), hours=_num(item.get('hours', item.get('value', 0)))) for item in data.get('cip_weekly', [])]
     entry_vs_exit = [
-        BalancePoint(label='Hoy', entrada=1284, salida=1166),
-        BalancePoint(label='Ayer', entrada=1248, salida=1189),
-        BalancePoint(label='Semana', entrada=8710, salida=8336),
+        BalancePoint(label=str(item.get('label', '')), entrada=_num(item.get('entrada')), salida=_num(item.get('salida')))
+        for item in data.get('entry_vs_exit', [])
     ]
     monthly_averages = [
-        MonthlyAveragePoint(month='Ene', tratada=718, cruda=232, suave=186),
-        MonthlyAveragePoint(month='Feb', tratada=731, cruda=228, suave=194),
-        MonthlyAveragePoint(month='Mar', tratada=745, cruda=221, suave=201),
-        MonthlyAveragePoint(month='Abr', tratada=742, cruda=226, suave=198),
+        MonthlyAveragePoint(
+            month=str(item.get('month', item.get('mes', ''))),
+            entrada=_num(item.get('entrada')),
+            tratada=_num(item.get('tratada')),
+            cruda=_num(item.get('cruda')),
+            suave=_num(item.get('suave')),
+        )
+        for item in data.get('monthly_averages', [])
     ]
-    daily_indicators = [
-        WaterMetricItem(name='Indicador total diario', value=1284, unit='m³', detail='Suma diaria'),
-        WaterMetricItem(name='Indicador tratada', value=742, unit='m³', detail='Salida tratada'),
-        WaterMetricItem(name='Indicador cruda', value=226, unit='m³', detail='Consumo cruda'),
-        WaterMetricItem(name='Indicador suave', value=198, unit='m³', detail='Consumo suave'),
-    ]
-    report_modules = [
+    daily_indicators = [_metric(item) for item in data.get('daily_indicators', [])]
+    if not daily_indicators:
+        daily_indicators = water_entry_by_well + water_consumption
+    report_modules = [str(item) for item in data.get('report_modules', [])] or [
         'Dashboard base de pozos',
         'Reporte de entradas vs salidas',
         'Reporte semanal CIP',
         'Monitoreo UV (fase siguiente)',
     ]
 
-    if section == 'consumos':
-        subtitle = 'Vista enfocada en consumos de agua tratada, suave y cruda'
-    elif section == 'tanques':
-        subtitle = 'Vista enfocada en niveles y capacidad de tanques'
-    elif section == 'balance':
-        subtitle = 'Vista enfocada en entradas, salidas y balances netos'
-    elif section == 'reportes':
-        subtitle = 'Estructura inicial para exportaciones y reportes hidráulicos'
-    elif section == 'cip':
-        subtitle = 'Vista enfocada en CIP y consumo semanal'
-    elif section == 'uv':
-        subtitle = 'Espacio reservado para monitoreo UV en siguiente fase'
+    return {
+        'wells': wells,
+        'sensors': unique_sensors,
+        'water_entry_by_well': water_entry_by_well,
+        'supply_hours': supply_hours,
+        'water_consumption': water_consumption,
+        'tank_levels': tank_levels,
+        'hourly_flow': hourly_flow,
+        'filters_vs_treated': filters_vs_treated,
+        'cip_weekly': cip_weekly,
+        'entry_vs_exit': entry_vs_exit,
+        'monthly_averages': monthly_averages,
+        'daily_indicators': daily_indicators,
+        'report_modules': report_modules,
+        'cards': _build_cards(wells, water_consumption, source),
+    }
+
+
+def get_water_dashboard_payload(section: str = 'dashboard') -> WaterDashboardPayload:
+    title, subtitle = WATER_SECTION_META.get(section, WATER_SECTION_META['dashboard'])
+    data, source = load_active_source_payload()
+    if not data:
+        return _empty_payload(section, source)
+
+    normalized = _normalize_dashboard_data(data, source)
+    if not normalized['wells'] and section not in {'fuentes', 'reportes'}:
+        return _empty_payload(section, source)
+
+    section_subtitles = {
+        'consumos': 'Vista enfocada en consumos de agua tratada, suave y cruda desde la fuente activa',
+        'tanques': 'Vista enfocada en niveles y capacidad de tanques desde la fuente activa',
+        'balance': 'Vista enfocada en entradas, salidas y balances netos desde la fuente activa',
+        'reportes': 'Estructura para exportaciones y reportes hidráulicos sobre la fuente activa',
+        'cip': 'Vista enfocada en CIP y consumo semanal desde la fuente activa',
+        'uv': 'Espacio reservado para monitoreo UV en siguiente fase',
+        'fuentes': 'Administración de datasets hidráulicos cargados',
+    }
 
     return WaterDashboardPayload(
         title=title,
-        subtitle=subtitle,
-        cards=_base_cards(),
-        water_entry_by_well=water_entry_by_well,
-        water_consumption=water_consumption,
-        tank_levels=tank_levels,
-        supply_hours=supply_hours,
-        filters_vs_treated=filters_vs_treated,
-        cip_weekly=cip_weekly,
-        entry_vs_exit=entry_vs_exit,
-        monthly_averages=monthly_averages,
-        daily_indicators=daily_indicators,
-        report_modules=report_modules,
+        subtitle=section_subtitles.get(section, subtitle),
+        cards=normalized['cards'],
+        water_entry_by_well=normalized['water_entry_by_well'],
+        water_consumption=normalized['water_consumption'],
+        tank_levels=normalized['tank_levels'],
+        supply_hours=normalized['supply_hours'],
+        filters_vs_treated=normalized['filters_vs_treated'],
+        cip_weekly=normalized['cip_weekly'],
+        entry_vs_exit=normalized['entry_vs_exit'],
+        monthly_averages=normalized['monthly_averages'],
+        daily_indicators=normalized['daily_indicators'],
+        report_modules=normalized['report_modules'],
+        hourly_flow=normalized['hourly_flow'],
+        wells=normalized['wells'],
+        sensors=normalized['sensors'],
+        source_status='active',
+        source=source,
         updated_at=datetime.utcnow(),
     )

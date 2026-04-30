@@ -1788,3 +1788,134 @@ th { color: #c1d0e8; font-weight: 700; position: sticky; top: 0; background: #0f
   background: linear-gradient(180deg, rgba(3, 15, 28, .98), rgba(6, 30, 48, .98));
   border-color: rgba(56,189,248,.16);
 }
+
+.water-empty-state {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: #d9f3ff;
+}
+
+.empty-panel-note {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b9e7ff;
+  opacity: 0.85;
+  text-align: center;
+  padding: 18px;
+}
+
+.source-admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.source-upload-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.source-file-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(56, 189, 248, 0.45);
+  border-radius: 14px;
+  color: #e7f8ff;
+  background: rgba(14, 165, 233, 0.08);
+  cursor: pointer;
+}
+
+.source-file-label input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.source-action-button {
+  border: 1px solid rgba(56, 189, 248, 0.34);
+  border-radius: 12px;
+  background: rgba(14, 165, 233, 0.18);
+  color: #e7f8ff;
+  font-weight: 800;
+  padding: 11px 14px;
+  cursor: pointer;
+}
+
+.source-action-button.small {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.source-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.source-validation,
+.source-message {
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #e7f8ff;
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.source-validation.ok {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.source-validation.bad {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.source-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid rgba(56, 189, 248, 0.16);
+}
+
+.source-item-title {
+  font-weight: 900;
+  color: #fff;
+}
+
+.source-item-meta,
+.source-item-description {
+  margin-top: 4px;
+  color: #b9e7ff;
+  font-size: 13px;
+}
+
+.source-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.small-value {
+  font-size: 20px;
+}

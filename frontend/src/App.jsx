@@ -26,6 +26,7 @@ const POZOS_MENU = [
       { key: 'cip', label: 'CIP', iconKey: 'pozos-cip' },
       { key: 'uv', label: 'Lámparas UV', iconKey: 'pozos-uv' },
       { key: 'reportes', label: 'Reportes', iconKey: 'pozos-reportes' },
+      { key: 'fuentes', label: 'Fuentes', iconKey: 'pozos-fuentes' },
     ],
   },
 ];

@@ -5,6 +5,7 @@ import {
   Droplets,
   Factory,
   FileBarChart2,
+  Database,
   FlaskConical,
   Gauge,
   Home,
@@ -49,6 +50,7 @@ const iconMap = {
   'pozos-cip': FlaskConical,
   'pozos-uv': ShieldCheck,
   'pozos-reportes': FileBarChart2,
+  'pozos-fuentes': Database,
 };
 
 function getIcon(key, iconKey) {
