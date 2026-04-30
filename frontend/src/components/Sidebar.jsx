@@ -2,22 +2,22 @@ import {
   Activity,
   ArrowLeftRight,
   BellRing,
-  Database,
   Droplets,
   Factory,
   FileBarChart2,
   FlaskConical,
   Gauge,
+  GitBranch,
   Home,
   Lamp,
   LayoutGrid,
   LineChart as LineChartIcon,
   Menu,
   Settings,
-  ShieldCheck,
   Snowflake,
   Truck,
   Waves,
+  ShieldCheck,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
@@ -44,13 +44,16 @@ const iconMap = {
   alertas: BellRing,
   'multi-plant-dashboard': LayoutGrid,
   'pozos-dashboard': Droplets,
+  'pozos-pozos': Waves,
   'pozos-consumos': Waves,
   'pozos-tanques': Gauge,
+  'pozos-lineas': GitBranch,
   'pozos-balance': ArrowLeftRight,
+  'pozos-concesion': ShieldCheck,
+  'pozos-revision': FileBarChart2,
   'pozos-cip': FlaskConical,
   'pozos-uv': ShieldCheck,
   'pozos-reportes': FileBarChart2,
-  'pozos-fuentes': Database,
 };
 
 function getIcon(key, iconKey) {
@@ -70,7 +73,7 @@ export default function Sidebar({
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="brand-row">
-        <button className="menu-button" onClick={onToggle} aria-label="Alternar menu"><Menu size={18} /></button>
+        <button className="menu-button" onClick={onToggle}><Menu size={18} /></button>
         {!collapsed && (
           <>
             <div className="brand-mark logo-mark"><BrandLogo className="brand-logo sidebar-logo" /></div>
@@ -101,7 +104,7 @@ export default function Sidebar({
 
       {domainSwitchPath ? (
         <div className="sidebar-footer">
-          <NavLink to={domainSwitchPath} className="nav-item switch-domain-link" title={domainSwitchLabel}>
+          <NavLink to={domainSwitchPath} className="nav-item switch-domain-link">
             <ArrowLeftRight size={16} />
             {!collapsed && <span>{domainSwitchLabel}</span>}
           </NavLink>
